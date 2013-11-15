@@ -33,14 +33,14 @@ typedef struct {
 /* arrays to store info retreived from files */
 int p; // number of particles
 int* ids;
-float* x = (float*) malloc(sizeof(float));
-float* y = (float*) malloc(sizeof(float));
-float* z = (float*) malloc(sizeof(float));
-float* charge = (float*) malloc(sizeof(float));
+float* x;
+float* y;
+float* z;
+float* charge;
 
 int lj; // number of LJ parameters
-float* sigma = (float*) malloc(sizeof(float));
-float* epsilon = (float*) malloc(sizeof(float));
+float* sigma;
+float* epsilon;
 
 /* BEGIN CODE */
 
@@ -126,9 +126,31 @@ int pdb_parse(char* pdb_filename, char* itp_filename, float* lattice) {
 	 * through the header parse.h. It doesn't contain any logic and just
 	 * deployes the input to the soubroutines.
 	 */
+
+	/* malloc the arrays */
+	ids = (int*) malloc(sizeof(int));
+	x = (float*) malloc(sizeof(float));
+	y = (float*) malloc(sizeof(float));
+	z = (float*) malloc(sizeof(float));
+	charge = (float*) malloc(sizeof(float));
+
+	sigma = (float*) malloc(sizeof(float));
+	epsilon = (float*) malloc(sizeof(float));
+
+	/* BEGIN DEPLOY */
+
 	pdb_parse_files(pdb_filename, itp_filename);
 
 	lattice = NULL;
+
+	/* free everything and return */
+	free(ids);
+	free(x);
+	free(y);
+	free(z);
+	free(charge);
+	free(sigma);
+	free(epsilon);
 
 	return pdb_SUCCESS;
 }
