@@ -6,16 +6,13 @@
 #define DEBUG
 
 /* Replacements for bool variables */
-int pdb_SUCCESS = 0;
-int pdb_ERROR = 1;
+const int pdb_SUCCESS = 0;
+const int pdb_ERROR = 1;
 
 /* structs might disappear in the future */
 typedef struct {
-	int i;
-} pdb_MODEL;
-
-typedef struct {
-	int i;
+	int i; // index
+	int m; // model index
 	float x,y,z;
 } pdb_ATOM;
 
@@ -30,51 +27,68 @@ typedef struct {
 	float sigma,epsilon;
 } itp_atomtypes;
 
-/* arrays to store info retreived from files */
-int p; // number of particles
-int* ids;
-float* x;
-float* y;
-float* z;
-float* charge;
-
-int lj; // number of LJ parameters
-float* sigma;
-float* epsilon;
+typedef struct {
+	int n_particles;
+	pdb_ATOM* atom_pdb_array;
+	itp_atoms* atoms_itp_array;
+	int n_parameters;
+	itp_atomtypes* atomtypes_itp_array;
+} particle_data;
 
 /* BEGIN CODE */
 
-int pdb_parse_files(char* pdb_filename, char* itp_filename) {
+void galloc(void** ptr, size_t size) {
+	if (!*ptr) {
+		if (size > 0) {
+			*ptr = (void*) malloc(size);
+		}
+		else {
+			printf("You are an idiot!\n");
+		}
+	}
+	else {
+		if (size > 0) {
+			*ptr = (void*) realloc(*ptr, size);
+		}
+		else {
+			free(*ptr);
+		}
+	}
+}
+
+int pdb_parse_files(char* pdb_filename, char* itp_filename, particle_data* atom_data) {
 	/*
 	 * This routine parses the pdb- and itp-file to extract
 	 * the relevant parameters. These are stored in arrays.
 	 */
 
 	// Parse pdb-file
+	int model = 0;
 	char pdb_line[256];
 	FILE* pdb_file;
 	if ((pdb_file = fopen(pdb_filename,"r")) == NULL) return pdb_ERROR;
 #ifdef DEBUG
-		printf("### Reading pdb-file \"%s\" ###\n",pdb_filename);
+	printf("### Reading pdb-file \"%s\" ###\n",pdb_filename);
 #endif	
 	while (fgets(pdb_line, sizeof(pdb_line), pdb_file)) {
 		if (strncmp(pdb_line,"MODEL",5) == 0) {
 			// read the MODEL identifier
-			pdb_MODEL m;
-			sscanf(pdb_line,"MODEL %d",&m.i);
+			sscanf(pdb_line,"MODEL %d",&model);
 #ifdef DEBUG
-			printf("MODEL m=%d\n", m.i);
+			printf("MODEL m=%d\n", model);
 #endif
 		}
 		if ( strncmp(pdb_line,"ATOM",4) == 0) {
 			// read all ATOMs
-			pdb_ATOM a;
+			galloc( (void**) &atom_data->atom_pdb_array , (atom_data->n_particles+1)*sizeof(pdb_ATOM) );
+			pdb_ATOM* a = &atom_data->atom_pdb_array[atom_data->n_particles];
 			// See http://deposit.rcsb.org/adit/docs/pdb_atom_format.html#ATOM for the meaning of the format string
-			sscanf(pdb_line,"ATOM %5d %*4s%*c%*3s%*c%*4d%*c %8f %8f %8f %*6f %*6f %*4s%*2s%*2s",&a.i,&a.x,&a.y,&a.z);
+			sscanf(pdb_line,"ATOM %5d %*4s%*c%*3s%*c%*4d%*c %8f %8f %8f %*6f %*6f %*4s%*2s%*2s",&a->i,&a->x,&a->y,&a->z);
 #ifdef DEBUG
 			// Print all local variables
-			printf("ATOM i=%d x=%f y=%f z=%f\n",a.i,a.x,a.y,a.z);
+			printf("ATOM i=%d x=%f y=%f z=%f\n",a->i,a->x,a->y,a->z);
 #endif
+			atom_data->n_particles++;
 		}
 	}
 	fclose(pdb_file);
@@ -127,30 +141,18 @@ int pdb_parse(char* pdb_filename, char* itp_filename, float* lattice) {
 	 * deployes the input to the soubroutines.
 	 */
 
-	/* malloc the arrays */
-	ids = (int*) malloc(sizeof(int));
-	x = (float*) malloc(sizeof(float));
-	y = (float*) malloc(sizeof(float));
-	z = (float*) malloc(sizeof(float));
-	charge = (float*) malloc(sizeof(float));
-
-	sigma = (float*) malloc(sizeof(float));
-	epsilon = (float*) malloc(sizeof(float));
-
 	/* BEGIN DEPLOY */
 
-	pdb_parse_files(pdb_filename, itp_filename);
+	particle_data atom_data;
+	atom_data.n_particles = 0;
+	atom_data.atom_pdb_array = NULL;
+	atom_data.atoms_itp_array = NULL;
+	atom_data.n_parameters = 0;
+	atom_data.atomtypes_itp_array = NULL;
+
+	pdb_parse_files(pdb_filename, itp_filename,&atom_data);
 
 	lattice = NULL;
-
-	/* free everything and return */
-	free(ids);
-	free(x);
-	free(y);
-	free(z);
-	free(charge);
-	free(sigma);
-	free(epsilon);
 
 	return pdb_SUCCESS;
 }
