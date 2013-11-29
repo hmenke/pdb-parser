@@ -1,8 +1,9 @@
 CC = clang
 CFLAGS = -Wall -Wextra -O3 --std=c99
+LDFLAGS= -lm
 
 all: test.o parse.o
-	$(CC) -o test test.o parse.o
+	$(CC) $(LDFLAGS) -o test test.o parse.o
 
 ParticleGroup.o: parse.c parse.h
 	$(CC) -c $(CFLAGS) -o parse.o parse.c
@@ -12,7 +13,7 @@ test.o: test.c
 
 debug: test.o parse.o
 	CFLAGS='-Wall -Wextra -O0 -ggdb'
-	$(CC) -o test test.o parse.o
+	$(CC) $(LDFLAGS) -o test test.o parse.o
 
 .PHONY : clean
 clean:

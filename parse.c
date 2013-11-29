@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "parse.h"
 
 #define DEBUG
@@ -36,7 +37,18 @@ typedef struct {
 	itp_atomtypes* itp_array_atomtypes;
 } particle_data;
 
+typedef struct {
+	float max_x;
+	float max_y;
+	float max_z;
+	float min_x;
+	float min_y;
+	float min_z;
+	float center[3];
+} bounding_box;
+
 /* BEGIN CODE */
+/* TODO: VTK atoms output as unstructured grid with charges to verify charge grid. */
 
 void galloc(void** ptr, size_t size) {
 	if (!*ptr) {
@@ -55,6 +67,44 @@ void galloc(void** ptr, size_t size) {
 			free(*ptr);
 		}
 	}
+}
+
+unsigned int rhoindex_cartesian2linear(unsigned int x, unsigned int y, unsigned int z, lattice_parameters* ek_parameters) {
+	return z * ek_parameters->dim_y * ek_parameters->dim_x + y * ek_parameters->dim_x + x;
+}
+
+int print_charge_field(char* filename, float* charge_lattice, lattice_parameters* ek_parameters) {
+	FILE* fp;
+	if ((fp = fopen(filename,"w")) == NULL) return pdb_ERROR;
+
+	if( fp == NULL ) {
+		return 1;
+	}
+
+	fprintf( fp, "\
+# vtk DataFile Version 2.0\n\
+density_lb\n\
+ASCII\n\
+\n\
+DATASET STRUCTURED_POINTS\n\
+DIMENSIONS %u %u %u\n\
+ORIGIN %f %f %f\n\
+SPACING %f %f %f\n\
+\n\
+POINT_DATA %u\n\
+SCALARS density_lb float 1\n\
+LOOKUP_TABLE default\n",
+	ek_parameters->dim_x, ek_parameters->dim_y, ek_parameters->dim_z,
+	ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f,
+	ek_parameters->agrid, ek_parameters->agrid, ek_parameters->agrid,
+	ek_parameters->dim_x * ek_parameters->dim_y * ek_parameters->dim_z);
+
+	for( int i = 0; i < (ek_parameters->dim_x * ek_parameters->dim_y * ek_parameters->dim_z); i++ ) {
+		fprintf( fp, "%e ", charge_lattice[i] );
+	}
+
+	fclose( fp );
+	return pdb_SUCCESS;
 }
 
 int pdb_parse_files(char* pdb_filename, char* itp_filename, particle_data* atom_data) {
@@ -140,7 +190,35 @@ int pdb_parse_files(char* pdb_filename, char* itp_filename, particle_data* atom_
 	return pdb_SUCCESS;
 }
 
-int populate_lattice(float** lattice, particle_data* atom_data) {
+int calculate_bounding_box(bounding_box* bbox, particle_data* atom_data) {
+	// prototype for joining the arrays
+	if (atom_data->pdb_n_particles-1 == 0) return pdb_ERROR;
+	pdb_ATOM* a = &atom_data->pdb_array_ATOM[0];
+	bbox->max_x = a->x;
+	bbox->max_y = a->y;
+	bbox->max_z = a->z;
+	bbox->min_x = a->x;
+	bbox->min_y = a->y;
+	bbox->min_z = a->z;
+
+	for (unsigned int i = 1; i <= atom_data->pdb_n_particles-1; i++) {
+		a = &atom_data->pdb_array_ATOM[i];
+		if (bbox->max_x < a->x) bbox->max_x = a->x;
+		if (bbox->max_y < a->y) bbox->max_y = a->y;
+		if (bbox->max_z < a->z) bbox->max_z = a->z;
+		if (bbox->min_x > a->x) bbox->min_x = a->x;
+		if (bbox->min_y > a->y) bbox->min_y = a->y;
+		if (bbox->min_z > a->z) bbox->min_z = a->z;
+	}
+
+	bbox->center[0] = ( bbox->max_x + bbox->min_x )/2;
+	bbox->center[1] = ( bbox->max_y + bbox->min_y )/2;
+	bbox->center[2] = ( bbox->max_z + bbox->min_z )/2;
+
+	return pdb_SUCCESS;
+}
+
+int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data* atom_data, lattice_parameters* ek_parameters) {
 	/*
 	 * This routine will populate the lattice using the
 	 * values read from the pdb and itp files.
@@ -149,18 +227,82 @@ int populate_lattice(float** lattice, particle_data* atom_data) {
 #ifdef DEBUG
 	printf("pdb_n_particles=%u, itp_n_particles=%u, itp_n_parameters=%u\n",atom_data->pdb_n_particles,atom_data->itp_n_particles,atom_data->itp_n_parameters);
 #endif
-	// prototype for joining the arrays
+	// TODO: Check if bounding box fits into simbox
+	bounding_box bbox;
+	calculate_bounding_box(&bbox, atom_data);
+
+	// calculate the shift of the bounding box
+	float shift[3];
+	shift[0] = ek_parameters->agrid / 2.0 * ek_parameters->dim_x - bbox.center[0];
+	shift[1] = ek_parameters->agrid / 2.0 * ek_parameters->dim_y - bbox.center[1];
+	shift[2] = ek_parameters->agrid / 2.0 * ek_parameters->dim_z - bbox.center[2];
+
+#ifdef DEBUG
+	printf("bbox.max_x=%f, bbox.max_y=%f, bbox.max_z=%f, bbox.min_x=%f, bbox.min_y=%f, bbox.min_z=%f, bbox->center=[%f; %f; %f]\n", bbox.max_x, bbox.max_y, bbox.max_z, bbox.min_x, bbox.min_y, bbox.min_z, bbox.center[0], bbox.center[1], bbox.center[2]);
+	printf("agrid=%f, dim_x=%d, dim_y=%d, dim_z=%d\n",ek_parameters->agrid, ek_parameters->dim_x, ek_parameters->dim_y, ek_parameters->dim_z);
+	printf("shift=[%f; %f; %f]\n",shift[0], shift[1], shift[2]);
+#endif
+
+	// prototype for joining the array
+	int lowernode[3];
+	float cellpos[3];
+	float gridpos;
+
 	for (unsigned int i = 0; i <= atom_data->pdb_n_particles-1; i++) {
 		pdb_ATOM* a = &atom_data->pdb_array_ATOM[i];
-		itp_atoms* b = NULL;
-		itp_atomtypes* c = NULL;
+		itp_atoms* b;
+		itp_atomtypes* c;
 		for (unsigned int j = 0; j <= atom_data->itp_n_particles-1; j++) {
 			b = &atom_data->itp_array_atoms[j];
 			if (a->i == b->i) {
 				for (unsigned int k = 0; k <= atom_data->itp_n_parameters-1; k++) {
 					c = &atom_data->itp_array_atomtypes[k];
 					if (strcmp(b->type,c->type) == 0) {
+#ifdef DEBUG
 						printf("i=%d x=%f y=%f z=%f type=%s charge=%f sigma=%f epsilon=%f\n",a->i,a->x,a->y,a->z,b->type,b->charge,c->sigma,c->epsilon);
+#endif
+
+						// Interpolate the charge to the lattice
+						gridpos      = (a->x + shift[0]) / ek_parameters->agrid - 0.5f;
+						lowernode[0] = (int) floorf( gridpos );
+						cellpos[0]   = gridpos - lowernode[0];
+						
+						gridpos      = (a->y + shift[1]) / ek_parameters->agrid - 0.5f;
+						lowernode[1] = (int) floorf( gridpos );
+						cellpos[1]   = gridpos - lowernode[1];
+						
+						gridpos      = (a->z + shift[2]) / ek_parameters->agrid - 0.5f;
+						lowernode[2] = (int) floorf( gridpos );
+						cellpos[2]   = gridpos - lowernode[2];
+						
+						lowernode[0] = (lowernode[0] + ek_parameters->dim_x) % ek_parameters->dim_x;
+						lowernode[1] = (lowernode[1] + ek_parameters->dim_y) % ek_parameters->dim_y;
+						lowernode[2] = (lowernode[2] + ek_parameters->dim_z) % ek_parameters->dim_z;
+
+						charge_lattice[rhoindex_cartesian2linear( lowernode[0],lowernode[1],lowernode[2],ek_parameters )]
+							= b->charge * ( 1 - cellpos[0] ) * ( 1 - cellpos[1] ) * ( 1 - cellpos[2] );
+
+						charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters->dim_x,lowernode[1],lowernode[2],ek_parameters )]
+							= b->charge * cellpos[0] * ( 1 - cellpos[1] ) * ( 1 - cellpos[2] );
+
+						charge_lattice[rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters->dim_y,lowernode[2],ek_parameters )]
+							= b->charge * ( 1 - cellpos[0] ) * cellpos[1] * ( 1 - cellpos[2] );
+
+						charge_lattice[rhoindex_cartesian2linear( lowernode[0],lowernode[1],( lowernode[2] + 1 ) % ek_parameters->dim_z,ek_parameters )]
+							= b->charge * ( 1 - cellpos[0] ) * ( 1 - cellpos[1] ) * cellpos[2];
+
+						charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters->dim_x,( lowernode[1] + 1 ) % ek_parameters->dim_y,lowernode[2],ek_parameters )]
+							= b->charge * cellpos[0] * cellpos[1] * ( 1 - cellpos[2] );
+
+						charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters->dim_x,lowernode[1],( lowernode[2] + 1 ) % ek_parameters->dim_z,ek_parameters )]
+							= b->charge * cellpos[0] * ( 1 - cellpos[1] ) * cellpos[2];
+
+						charge_lattice[rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters->dim_y,( lowernode[2] + 1 ) % ek_parameters->dim_z,ek_parameters )]
+							= b->charge * ( 1 - cellpos[0] ) * cellpos[1] * cellpos[2];
+
+						charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters->dim_x,( lowernode[1] + 1 ) % ek_parameters->dim_y,( lowernode[2] + 1 ) % ek_parameters->dim_z,ek_parameters )]
+							= b->charge * cellpos[0] * cellpos[1] * cellpos[2];
+
 						break;
 					}
 				}
@@ -168,11 +310,10 @@ int populate_lattice(float** lattice, particle_data* atom_data) {
 		}
 	}
 
-	lattice = NULL;
 	return pdb_SUCCESS;
 }
 
-int pdb_parse(char* pdb_filename, char* itp_filename, float** lattice) {
+int pdb_parse(char* pdb_filename, char* itp_filename, float* charge_lattice, int* boundary_lattice, lattice_parameters* ek_parameters) {
 	/*
 	 * This is the main parsing routine, which is visible to the outside
 	 * through the header parse.h. It doesn't contain any logic and just
@@ -191,7 +332,7 @@ int pdb_parse(char* pdb_filename, char* itp_filename, float** lattice) {
 
 	pdb_parse_files(pdb_filename, itp_filename,&atom_data);
 
-	populate_lattice(lattice, &atom_data);
+	populate_lattice(charge_lattice, boundary_lattice, &atom_data, ek_parameters);
 
 	return pdb_SUCCESS;
 }
