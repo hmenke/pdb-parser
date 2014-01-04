@@ -2,10 +2,10 @@ CC = clang
 CFLAGS = -Wall -Wextra -O3 --std=c99
 LDFLAGS= -lm
 
-all: test.o parse.o
+test: test.o parse.o
 	$(CC) $(LDFLAGS) -o test test.o parse.o
 
-ParticleGroup.o: parse.c parse.h
+parse.o: parse.c parse.h
 	$(CC) -c $(CFLAGS) -o parse.o parse.c
 
 test.o: test.c
@@ -15,9 +15,11 @@ debug: test.o parse.o
 	CFLAGS='-Wall -Wextra -O0 -ggdb'
 	$(CC) $(LDFLAGS) -o test test.o parse.o
 
-.PHONY : clean
+.PHONY: clean
 clean:
 	$(RM) test.o parse.o test
 
-compress: test.cpp parse.c parse.h Makefile
+compress: pdb_parser.tar.bz2
+
+pdb_parser.tar.bz2: test.c parse.c parse.h Makefile
 	tar -cjf pdb_parser.tar.bz2 parse.c parse.h test.c Makefile
