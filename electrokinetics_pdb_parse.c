@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "parse.h"
+#include "electrokinetics_pdb_parse.h"
 
 //#define DEBUG
 
@@ -385,7 +385,7 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
 int pdb_parse(char* pdb_filename, char* itp_filename, float* charge_lattice, int* boundary_lattice, lattice_parameters* ek_parameters) {
 	/*
 	 * This is the main parsing routine, which is visible to the outside
-	 * through the header parse.h. It doesn't contain any logic and just
+	 * through the header electrokinetics_pdb_parse.h. It doesn't contain any logic and just
 	 * deployes the input to the soubroutines.
 	 */
 

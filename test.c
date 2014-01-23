@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "parse.h"
+#include "electrokinetics_pdb_parse.h"
 
 int main() {
 	char pdb_filename[] = "ortho_dimer.pdb";
