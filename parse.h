@@ -13,4 +13,7 @@ int pdb_parse(char* pdb_filename, char* itp_filename, float* charge_lattice, int
 
 int print_charge_field(char* filename, float* charge_lattice, lattice_parameters* ek_parameters);
 
+int print_boundary_lattice(char* filename, int* boundary_lattice, lattice_parameters* ek_parameters);
+
+
 #endif

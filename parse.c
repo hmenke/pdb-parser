@@ -83,7 +83,7 @@ int print_charge_field(char* filename, float* charge_lattice, lattice_parameters
 
 	fprintf( fp, "\
 # vtk DataFile Version 2.0\n\
-density_lb\n\
+charge_density\n\
 ASCII\n\
 \n\
 DATASET STRUCTURED_POINTS\n\
@@ -92,7 +92,7 @@ ORIGIN %f %f %f\n\
 SPACING %f %f %f\n\
 \n\
 POINT_DATA %u\n\
-SCALARS density_lb float 1\n\
+SCALARS charge_density float 1\n\
 LOOKUP_TABLE default\n",
 	ek_parameters->dim_x, ek_parameters->dim_y, ek_parameters->dim_z,
 	ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f,
@@ -101,6 +101,40 @@ LOOKUP_TABLE default\n",
 
 	for( int i = 0; i < (ek_parameters->dim_x * ek_parameters->dim_y * ek_parameters->dim_z); i++ ) {
 		fprintf( fp, "%e ", charge_lattice[i] );
+	}
+
+	fclose( fp );
+	return pdb_SUCCESS;
+}
+
+int print_boundary_lattice(char* filename, int* boundary_lattice, lattice_parameters* ek_parameters) {
+	FILE* fp;
+	if ((fp = fopen(filename,"w")) == NULL) return pdb_ERROR;
+
+	if( fp == NULL ) {
+		return 1;
+	}
+
+	fprintf( fp, "\
+# vtk DataFile Version 2.0\n\
+boundary_flag\n\
+ASCII\n\
+\n\
+DATASET STRUCTURED_POINTS\n\
+DIMENSIONS %u %u %u\n\
+ORIGIN %f %f %f\n\
+SPACING %f %f %f\n\
+\n\
+POINT_DATA %u\n\
+SCALARS boundary_flag float 1\n\
+LOOKUP_TABLE default\n",
+	ek_parameters->dim_x, ek_parameters->dim_y, ek_parameters->dim_z,
+	ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f,
+	ek_parameters->agrid, ek_parameters->agrid, ek_parameters->agrid,
+	ek_parameters->dim_x * ek_parameters->dim_y * ek_parameters->dim_z);
+
+	for( int i = 0; i < (ek_parameters->dim_x * ek_parameters->dim_y * ek_parameters->dim_z); i++ ) {
+		fprintf( fp, "%d ", boundary_lattice[i] );
 	}
 
 	fclose( fp );
@@ -247,6 +281,7 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
 	int lowernode[3];
 	float cellpos[3];
 	float gridpos;
+	float a_x_shifted, a_y_shifted, a_z_shifted;
 
 	for (unsigned int i = 0; i <= atom_data->pdb_n_particles-1; i++) {
 		pdb_ATOM* a = &atom_data->pdb_array_ATOM[i];
@@ -302,6 +337,40 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
 
 						charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters->dim_x,( lowernode[1] + 1 ) % ek_parameters->dim_y,( lowernode[2] + 1 ) % ek_parameters->dim_z,ek_parameters )]
 							= b->charge * cellpos[0] * cellpos[1] * cellpos[2];
+
+						// Interpolate lennard-jones parameters to boundary
+						float r = 2*pow(2,1./6.)*c->sigma;
+
+						a_x_shifted = (a->x + shift[0]) / ek_parameters->agrid - 0.5f;
+						a_y_shifted = (a->y + shift[1]) / ek_parameters->agrid - 0.5f;
+						a_z_shifted = (a->z + shift[2]) / ek_parameters->agrid - 0.5f;
+
+						for (float z = a->z - r; z <= a->z + r + ek_parameters->agrid; z += ek_parameters->agrid) {
+							for (float y = a->y - r; y <= a->y + r + ek_parameters->agrid; y += ek_parameters->agrid) {
+								for (float x = a->x - r; x <= a->x + r + ek_parameters->agrid; x += ek_parameters->agrid) {
+									gridpos      = (x + shift[0]) / ek_parameters->agrid - 0.5f;
+									lowernode[0] = (int) floorf( gridpos );
+
+									gridpos      = (y + shift[1]) / ek_parameters->agrid - 0.5f;
+									lowernode[1] = (int) floorf( gridpos );
+
+									gridpos      = (z + shift[2]) / ek_parameters->agrid - 0.5f;
+									lowernode[2] = (int) floorf( gridpos );
+
+									lowernode[0] = (lowernode[0] + ek_parameters->dim_x) % ek_parameters->dim_x;
+									lowernode[1] = (lowernode[1] + ek_parameters->dim_y) % ek_parameters->dim_y;
+									lowernode[2] = (lowernode[2] + ek_parameters->dim_z) % ek_parameters->dim_z;
+
+									printf("shifted: %f %f %f\n", a_x_shifted, a_y_shifted, a_z_shifted);
+									printf("lowernode: %d %d %d\n", lowernode[0], lowernode[1], lowernode[2]);
+									printf("distance: %f %f %f\n", lowernode[0] - a_x_shifted, lowernode[1] - a_y_shifted, lowernode[2] - a_z_shifted);
+									printf("distance: %f <= %f\n\n", pow(lowernode[0] - a_x_shifted,2) + pow(lowernode[1] - a_y_shifted,2) + pow(lowernode[2] - a_z_shifted,2), pow(r/ek_parameters->agrid,2));
+									if ( pow(lowernode[0] - a_x_shifted,2) + pow(lowernode[1] - a_y_shifted,2) + pow(lowernode[2] - a_z_shifted,2) <= pow(r/ek_parameters->agrid,2) ) {
+										boundary_lattice[ek_parameters->dim_y*ek_parameters->dim_x*lowernode[2] + ek_parameters->dim_x*lowernode[1] + lowernode[0]] = 1;
+									}
+								}
+							}
+						}
 
 						break;
 					}
