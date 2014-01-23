@@ -4,13 +4,12 @@
 #include <math.h>
 #include "parse.h"
 
-#define DEBUG
+//#define DEBUG
 
 /* Replacements for bool variables */
 const int pdb_SUCCESS = 0;
 const int pdb_ERROR = 1;
 
-/* structs might disappear in the future */
 typedef struct {
 	int i; // index
 	int m; // model index
@@ -48,7 +47,6 @@ typedef struct {
 } bounding_box;
 
 /* BEGIN CODE */
-/* TODO: VTK atoms output as unstructured grid with charges to verify charge grid. */
 
 void galloc(void** ptr, size_t size) {
 	if (!*ptr) {
@@ -277,7 +275,7 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
 	printf("shift=[%f; %f; %f]\n",shift[0], shift[1], shift[2]);
 #endif
 
-	// prototype for joining the array
+	// joining the array
 	int lowernode[3];
 	float cellpos[3];
 	float gridpos;
@@ -361,10 +359,12 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
 									lowernode[1] = (lowernode[1] + ek_parameters->dim_y) % ek_parameters->dim_y;
 									lowernode[2] = (lowernode[2] + ek_parameters->dim_z) % ek_parameters->dim_z;
 
+#ifdef DEBUG
 									printf("shifted: %f %f %f\n", a_x_shifted, a_y_shifted, a_z_shifted);
 									printf("lowernode: %d %d %d\n", lowernode[0], lowernode[1], lowernode[2]);
 									printf("distance: %f %f %f\n", lowernode[0] - a_x_shifted, lowernode[1] - a_y_shifted, lowernode[2] - a_z_shifted);
 									printf("distance: %f <= %f\n\n", pow(lowernode[0] - a_x_shifted,2) + pow(lowernode[1] - a_y_shifted,2) + pow(lowernode[2] - a_z_shifted,2), pow(r/ek_parameters->agrid,2));
+#endif
 									if ( pow(lowernode[0] - a_x_shifted,2) + pow(lowernode[1] - a_y_shifted,2) + pow(lowernode[2] - a_z_shifted,2) <= pow(r/ek_parameters->agrid,2) ) {
 										boundary_lattice[ek_parameters->dim_y*ek_parameters->dim_x*lowernode[2] + ek_parameters->dim_x*lowernode[1] + lowernode[0]] = 1;
 									}
