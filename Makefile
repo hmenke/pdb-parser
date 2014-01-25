@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -O3 --std=c99
 LDFLAGS= -lm
 
 test: test.o electrokinetics_pdb_parse.o
-	$(CC) $(LDFLAGS) -o test test.o electrokinetics_pdb_parse.o
+	$(CC) -o test test.o electrokinetics_pdb_parse.o $(LDFLAGS)
 
 electrokinetics_pdb_parse.o: electrokinetics_pdb_parse.c electrokinetics_pdb_parse.h
 	$(CC) -c $(CFLAGS) -o electrokinetics_pdb_parse.o electrokinetics_pdb_parse.c

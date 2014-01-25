@@ -167,6 +167,9 @@ int pdb_parse_files(char* pdb_filename, char* itp_filename, particle_data* atom_
 			pdb_ATOM* a = &atom_data->pdb_array_ATOM[atom_data->pdb_n_particles];
 			// See http://deposit.rcsb.org/adit/docs/pdb_atom_format.html#ATOM for the meaning of the format string
 			sscanf(pdb_line,"ATOM %5d %*4s%*c%*3s%*c%*4d%*c %8f %8f %8f %*6f %*6f %*4s%*2s%*2s",&a->i,&a->x,&a->y,&a->z);
+			a->x /= 10.0;
+			a->y /= 10.0;
+			a->z /= 10.0;
 #ifdef DEBUG
 			// Print all local variables
 			printf("ATOM i=%d x=%f y=%f z=%f\n",a->i,a->x,a->y,a->z);
@@ -337,7 +340,7 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
 							= b->charge * cellpos[0] * cellpos[1] * cellpos[2];
 
 						// Interpolate lennard-jones parameters to boundary
-						float r = 2*pow(2,1./6.)*c->sigma;
+						float r = pow(2,1./6.)*c->sigma;
 
 						a_x_shifted = (a->x + shift[0]) / ek_parameters->agrid - 0.5f;
 						a_y_shifted = (a->y + shift[1]) / ek_parameters->agrid - 0.5f;
