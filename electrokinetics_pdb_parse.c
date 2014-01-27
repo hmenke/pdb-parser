@@ -167,6 +167,9 @@ int pdb_parse_files(char* pdb_filename, char* itp_filename, particle_data* atom_
       pdb_ATOM* a = &atom_data->pdb_array_ATOM[atom_data->pdb_n_particles];
       // See http://deposit.rcsb.org/adit/docs/pdb_atom_format.html#ATOM for the meaning of the format string
       sscanf(pdb_line,"ATOM %5d %*4s%*c%*3s%*c%*4d%*c %8f %8f %8f %*6f %*6f %*4s%*2s%*2s",&a->i,&a->x,&a->y,&a->z);
+      a->x /= 10.0;
+      a->y /= 10.0;
+      a->z /= 10.0;
 #ifdef DEBUG
       // Print all local variables
       printf("ATOM i=%d x=%f y=%f z=%f\n",a->i,a->x,a->y,a->z);
@@ -340,7 +343,7 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
               printf("Only indices!\n");
             }
             // Interpolate lennard-jones parameters to boundary
-            float r = 2*pow(2,1./6.)*c->sigma;
+            float r = pow(2,1./6.)*c->sigma;
 
             a_x_shifted = (a->x + shift[0]) / ek_parameters->agrid - 0.5f;
             a_y_shifted = (a->y + shift[1]) / ek_parameters->agrid - 0.5f;
@@ -361,7 +364,6 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
                   lowernode[0] = (lowernode[0] + ek_parameters->dim_x) % ek_parameters->dim_x;
                   lowernode[1] = (lowernode[1] + ek_parameters->dim_y) % ek_parameters->dim_y;
                   lowernode[2] = (lowernode[2] + ek_parameters->dim_z) % ek_parameters->dim_z;
-
 #ifdef DEBUG
                   printf("shifted: %f %f %f\n", a_x_shifted, a_y_shifted, a_z_shifted);
                   printf("lowernode: %d %d %d\n", lowernode[0], lowernode[1], lowernode[2]);
