@@ -1,3 +1,4 @@
+/* vim: set ts=8 sts=2 sw=2 et: */
 #ifndef _PDB_PARSER_H
 #define _PDB_PARSER_H
 
