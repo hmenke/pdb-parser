@@ -2,10 +2,10 @@
 #define _PDB_PARSER_H
 
 typedef struct {
-	float agrid;
-	int dim_x;
-	int dim_y;
-	int dim_z;
+  float agrid;
+  int dim_x;
+  int dim_y;
+  int dim_z;
 } lattice_parameters;
 
 /* Returns 0/1 if reading the files was successful/unsuccessful */
