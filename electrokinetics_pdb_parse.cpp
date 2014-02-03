@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "electrokinetics_pdb_parse.h"
+#include "electrokinetics_pdb_parse.hpp"
 
 //#define DEBUG
 

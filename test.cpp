@@ -1,7 +1,7 @@
 /* vim: set ts=8 sts=2 sw=2 et: */
 #include <stdio.h>
 #include <stdlib.h>
-#include "electrokinetics_pdb_parse.h"
+#include "electrokinetics_pdb_parse.hpp"
 
 int main() {
   char pdb_filename[] = "ortho_dimer.pdb";
