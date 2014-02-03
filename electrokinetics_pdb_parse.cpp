@@ -68,11 +68,11 @@ void galloc(void** ptr, size_t size) {
   }
 }
 
-unsigned int rhoindex_cartesian2linear(unsigned int x, unsigned int y, unsigned int z, lattice_parameters* ek_parameters) {
+unsigned int rhoindex_cartesian2linear(unsigned int x, unsigned int y, unsigned int z, EK_parameters* ek_parameters) {
   return z * ek_parameters->dim_y * ek_parameters->dim_x + y * ek_parameters->dim_x + x;
 }
 
-int print_charge_field(char* filename, float* charge_lattice, lattice_parameters* ek_parameters) {
+int print_charge_field(char* filename, float* charge_lattice, EK_parameters* ek_parameters) {
   FILE* fp;
   if ((fp = fopen(filename,"w")) == NULL) return pdb_ERROR;
   
@@ -106,7 +106,7 @@ LOOKUP_TABLE default\n",
   return pdb_SUCCESS;
 }
 
-int print_boundary_lattice(char* filename, int* boundary_lattice, lattice_parameters* ek_parameters) {
+int print_boundary_lattice(char* filename, int* boundary_lattice, EK_parameters* ek_parameters) {
   FILE* fp;
   if ((fp = fopen(filename,"w")) == NULL) return pdb_ERROR;
   
@@ -254,7 +254,7 @@ int calculate_bounding_box(bounding_box* bbox, particle_data* atom_data) {
   return pdb_SUCCESS;
 }
 
-int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data* atom_data, lattice_parameters* ek_parameters, int indices_only) {
+int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data* atom_data, EK_parameters* ek_parameters, int indices_only) {
   /*
    * This routine will populate the lattice using the
    * values read from the pdb and itp files.
@@ -392,7 +392,7 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
   return pdb_SUCCESS;
 }
 
-int pdb_parse(char* pdb_filename, char* itp_filename, float* charge_lattice, int* boundary_lattice, lattice_parameters* ek_parameters, int indices_only) {
+int pdb_parse(char* pdb_filename, char* itp_filename, float* charge_lattice, int* boundary_lattice, EK_parameters* ek_parameters, int indices_only) {
   /*
    * This is the main parsing routine, which is visible to the outside
    * through the header electrokinetics_pdb_parse.h. It doesn't contain any logic and just
