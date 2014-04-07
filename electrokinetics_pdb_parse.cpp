@@ -13,7 +13,6 @@ const int pdb_ERROR = 1;
 
 float* pdb_charge_lattice;
 int* pdb_boundary_lattice;
-EK_parameters ek_parameters;
 
 typedef struct {
   int i; // index
@@ -72,7 +71,7 @@ void galloc(void** ptr, size_t size) {
   }
 }
 
-unsigned int rhoindex_cartesian2linear(unsigned int x, unsigned int y, unsigned int z) {
+unsigned int pdb_rhoindex_cartesian2linear(unsigned int x, unsigned int y, unsigned int z) {
   return z * ek_parameters.dim_y * ek_parameters.dim_x + y * ek_parameters.dim_x + x;
 }
 
@@ -321,28 +320,28 @@ int populate_lattice(particle_data* atom_data, int indices_only) {
             lowernode[2] = (lowernode[2] + ek_parameters.dim_z) % ek_parameters.dim_z;
 
             if ( indices_only == 0 ) {
-              pdb_charge_lattice[rhoindex_cartesian2linear( lowernode[0],lowernode[1],lowernode[2] )]
+              pdb_charge_lattice[pdb_rhoindex_cartesian2linear( lowernode[0],lowernode[1],lowernode[2] )]
                 = b->charge * ( 1 - cellpos[0] ) * ( 1 - cellpos[1] ) * ( 1 - cellpos[2] );
 
-              pdb_charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,lowernode[1],lowernode[2] )]
+              pdb_charge_lattice[pdb_rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,lowernode[1],lowernode[2] )]
                 = b->charge * cellpos[0] * ( 1 - cellpos[1] ) * ( 1 - cellpos[2] );
 
-              pdb_charge_lattice[rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters.dim_y,lowernode[2] )]
+              pdb_charge_lattice[pdb_rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters.dim_y,lowernode[2] )]
                 = b->charge * ( 1 - cellpos[0] ) * cellpos[1] * ( 1 - cellpos[2] );
 
-              pdb_charge_lattice[rhoindex_cartesian2linear( lowernode[0],lowernode[1],( lowernode[2] + 1 ) % ek_parameters.dim_z )]
+              pdb_charge_lattice[pdb_rhoindex_cartesian2linear( lowernode[0],lowernode[1],( lowernode[2] + 1 ) % ek_parameters.dim_z )]
                 = b->charge * ( 1 - cellpos[0] ) * ( 1 - cellpos[1] ) * cellpos[2];
 
-              pdb_charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,( lowernode[1] + 1 ) % ek_parameters.dim_y,lowernode[2] )]
+              pdb_charge_lattice[pdb_rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,( lowernode[1] + 1 ) % ek_parameters.dim_y,lowernode[2] )]
                 = b->charge * cellpos[0] * cellpos[1] * ( 1 - cellpos[2] );
 
-              pdb_charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,lowernode[1],( lowernode[2] + 1 ) % ek_parameters.dim_z )]
+              pdb_charge_lattice[pdb_rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,lowernode[1],( lowernode[2] + 1 ) % ek_parameters.dim_z )]
                 = b->charge * cellpos[0] * ( 1 - cellpos[1] ) * cellpos[2];
 
-              pdb_charge_lattice[rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters.dim_y,( lowernode[2] + 1 ) % ek_parameters.dim_z )]
+              pdb_charge_lattice[pdb_rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters.dim_y,( lowernode[2] + 1 ) % ek_parameters.dim_z )]
                 = b->charge * ( 1 - cellpos[0] ) * cellpos[1] * cellpos[2];
 
-              pdb_charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,( lowernode[1] + 1 ) % ek_parameters.dim_y,( lowernode[2] + 1 ) % ek_parameters.dim_z )]
+              pdb_charge_lattice[pdb_rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,( lowernode[1] + 1 ) % ek_parameters.dim_y,( lowernode[2] + 1 ) % ek_parameters.dim_z )]
                 = b->charge * cellpos[0] * cellpos[1] * cellpos[2];
             }
 	    else if ( indices_only == 1 ) {
@@ -398,7 +397,7 @@ int populate_lattice(particle_data* atom_data, int indices_only) {
   return pdb_SUCCESS;
 }
 
-int pdb_parse(char* pdb_filename, char* itp_filename, int indices_only) {
+int pdb_parse(char* pdb_filename, char* itp_filename) {
   /*
    * This is the main parsing routine, which is visible to the outside
    * through the header electrokinetics_pdb_parse.h. It doesn't contain any logic and just
@@ -406,6 +405,7 @@ int pdb_parse(char* pdb_filename, char* itp_filename, int indices_only) {
    */
 
   /* BEGIN DEPLOY */
+  int indices_only = 0;
   pdb_charge_lattice = (float*) calloc( ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z, sizeof(float));
   pdb_boundary_lattice = (int*) calloc( ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z, sizeof(int));
 
@@ -417,7 +417,7 @@ int pdb_parse(char* pdb_filename, char* itp_filename, int indices_only) {
   atom_data.itp_n_parameters = 0;
   atom_data.itp_array_atomtypes = NULL;
 
-  pdb_parse_files(pdb_filename, itp_filename,&atom_data);
+  pdb_parse_files(pdb_filename, itp_filename, &atom_data);
 
   populate_lattice(&atom_data, indices_only);
 

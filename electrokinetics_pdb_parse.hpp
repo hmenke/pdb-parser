@@ -8,7 +8,7 @@ extern float* pdb_charge_lattice;
 extern int* pdb_boundary_lattice;
 
 /* Returns 0/1 if reading the files was successful/unsuccessful */
-int pdb_parse(char* pdb_filename, char* itp_filename, int indices_only);
+int pdb_parse(char* pdb_filename, char* itp_filename);
 
 int print_charge_field(char* filename);
 

@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include "electrokinetics_pdb_parse.hpp"
 
+EK_parameters ek_parameters;
+
 int main() {
   char pdb_filename[] = "ortho_dimer.pdb";
   char itp_filename[] = "ortho_dimer.itp";
@@ -11,7 +13,7 @@ int main() {
   ek_parameters.dim_y = 160;
   ek_parameters.dim_z = 160;
 
-  pdb_parse(pdb_filename, itp_filename, 0);
+  pdb_parse(pdb_filename, itp_filename);
 
   print_charge_field((char*)"charge_field.vtk");
   print_boundary_lattice((char*)"boundary_lattice.vtk");
