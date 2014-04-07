@@ -101,7 +101,7 @@ LOOKUP_TABLE default\n",
   ek_parameters.agrid, ek_parameters.agrid, ek_parameters.agrid,
   ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z);
   
-  for( int i = 0; i < (ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z); i++ ) {
+  for( unsigned int i = 0; i < (ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z); i++ ) {
     fprintf( fp, "%e ", pdb_charge_lattice[i] );
   }
   
@@ -135,7 +135,7 @@ LOOKUP_TABLE default\n",
   ek_parameters.agrid, ek_parameters.agrid, ek_parameters.agrid,
   ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z);
 
-  for( int i = 0; i < (ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z); i++ ) {
+  for( unsigned int i = 0; i < (ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z); i++ ) {
     fprintf( fp, "%d ", pdb_boundary_lattice[i] );
   }
   
@@ -401,13 +401,17 @@ int pdb_parse(char* pdb_filename, char* itp_filename) {
   /*
    * This is the main parsing routine, which is visible to the outside
    * through the header electrokinetics_pdb_parse.h. It doesn't contain any logic and just
-   * deployes the input to the soubroutines.
+   * deploys the input to the subroutines.
    */
 
   /* BEGIN DEPLOY */
   int indices_only = 0;
-  pdb_charge_lattice = (float*) calloc( ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z, sizeof(float));
-  pdb_boundary_lattice = (int*) calloc( ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z, sizeof(int));
+  galloc( (void**) &pdb_charge_lattice, ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z * sizeof(float));
+  galloc( (void**) &pdb_boundary_lattice, ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z * sizeof(int));
+  for ( unsigned int i = 0; i < ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z; i++ ) {
+    pdb_charge_lattice[i] = 0.0;
+    pdb_boundary_lattice[i] = 0;
+  }
 
   particle_data atom_data;
   atom_data.pdb_n_particles = 0;
