@@ -6,14 +6,14 @@
 int main() {
   char pdb_filename[] = "ortho_dimer.pdb";
   char itp_filename[] = "ortho_dimer.itp";
-  EK_parameters ek_parameters = {0.0625,160,160,160};
+  ek_parameters.agrid = 0.0625;
+  ek_parameters.dim_x = 160;
+  ek_parameters.dim_y = 160;
+  ek_parameters.dim_z = 160;
 
-  float* charge_lattice = (float*) calloc( ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z, sizeof(float));
-  int* boundary_lattice = (int*) calloc( ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z, sizeof(int));
+  pdb_parse(pdb_filename, itp_filename, 0);
 
-  pdb_parse(pdb_filename, itp_filename, charge_lattice, boundary_lattice, &ek_parameters, 0);
-
-  print_charge_field("charge_field.vtk", charge_lattice, &ek_parameters);
-  print_boundary_lattice("boundary_lattice.vtk", boundary_lattice, &ek_parameters);
+  print_charge_field((char*)"charge_field.vtk");
+  print_boundary_lattice((char*)"boundary_lattice.vtk");
   return 0;
 }

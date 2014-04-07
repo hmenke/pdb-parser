@@ -11,6 +11,10 @@
 const int pdb_SUCCESS = 0;
 const int pdb_ERROR = 1;
 
+float* pdb_charge_lattice;
+int* pdb_boundary_lattice;
+EK_parameters ek_parameters;
+
 typedef struct {
   int i; // index
   int m; // model index
@@ -55,7 +59,7 @@ void galloc(void** ptr, size_t size) {
       *ptr = (void*) malloc(size);
     }
     else {
-      printf("You are an idiot!\n");
+      printf("You cannot malloc to size 0\n");
     }
   }
   else {
@@ -68,11 +72,11 @@ void galloc(void** ptr, size_t size) {
   }
 }
 
-unsigned int rhoindex_cartesian2linear(unsigned int x, unsigned int y, unsigned int z, EK_parameters* ek_parameters) {
-  return z * ek_parameters->dim_y * ek_parameters->dim_x + y * ek_parameters->dim_x + x;
+unsigned int rhoindex_cartesian2linear(unsigned int x, unsigned int y, unsigned int z) {
+  return z * ek_parameters.dim_y * ek_parameters.dim_x + y * ek_parameters.dim_x + x;
 }
 
-int print_charge_field(char* filename, float* charge_lattice, EK_parameters* ek_parameters) {
+int print_charge_field(char* filename) {
   FILE* fp;
   if ((fp = fopen(filename,"w")) == NULL) return pdb_ERROR;
   
@@ -93,20 +97,20 @@ SPACING %f %f %f\n\
 POINT_DATA %u\n\
 SCALARS charge_density float 1\n\
 LOOKUP_TABLE default\n",
-  ek_parameters->dim_x, ek_parameters->dim_y, ek_parameters->dim_z,
-  ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f,
-  ek_parameters->agrid, ek_parameters->agrid, ek_parameters->agrid,
-  ek_parameters->dim_x * ek_parameters->dim_y * ek_parameters->dim_z);
+  ek_parameters.dim_x, ek_parameters.dim_y, ek_parameters.dim_z,
+  ek_parameters.agrid*0.5f, ek_parameters.agrid*0.5f, ek_parameters.agrid*0.5f,
+  ek_parameters.agrid, ek_parameters.agrid, ek_parameters.agrid,
+  ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z);
   
-  for( int i = 0; i < (ek_parameters->dim_x * ek_parameters->dim_y * ek_parameters->dim_z); i++ ) {
-    fprintf( fp, "%e ", charge_lattice[i] );
+  for( int i = 0; i < (ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z); i++ ) {
+    fprintf( fp, "%e ", pdb_charge_lattice[i] );
   }
   
   fclose( fp );
   return pdb_SUCCESS;
 }
 
-int print_boundary_lattice(char* filename, int* boundary_lattice, EK_parameters* ek_parameters) {
+int print_boundary_lattice(char* filename) {
   FILE* fp;
   if ((fp = fopen(filename,"w")) == NULL) return pdb_ERROR;
   
@@ -127,13 +131,13 @@ SPACING %f %f %f\n\
 POINT_DATA %u\n\
 SCALARS boundary_flag float 1\n\
 LOOKUP_TABLE default\n",
-  ek_parameters->dim_x, ek_parameters->dim_y, ek_parameters->dim_z,
-  ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f, ek_parameters->agrid*0.5f,
-  ek_parameters->agrid, ek_parameters->agrid, ek_parameters->agrid,
-  ek_parameters->dim_x * ek_parameters->dim_y * ek_parameters->dim_z);
+  ek_parameters.dim_x, ek_parameters.dim_y, ek_parameters.dim_z,
+  ek_parameters.agrid*0.5f, ek_parameters.agrid*0.5f, ek_parameters.agrid*0.5f,
+  ek_parameters.agrid, ek_parameters.agrid, ek_parameters.agrid,
+  ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z);
 
-  for( int i = 0; i < (ek_parameters->dim_x * ek_parameters->dim_y * ek_parameters->dim_z); i++ ) {
-    fprintf( fp, "%d ", boundary_lattice[i] );
+  for( int i = 0; i < (ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z); i++ ) {
+    fprintf( fp, "%d ", pdb_boundary_lattice[i] );
   }
   
   fclose( fp );
@@ -254,7 +258,7 @@ int calculate_bounding_box(bounding_box* bbox, particle_data* atom_data) {
   return pdb_SUCCESS;
 }
 
-int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data* atom_data, EK_parameters* ek_parameters, int indices_only) {
+int populate_lattice(particle_data* atom_data, int indices_only) {
   /*
    * This routine will populate the lattice using the
    * values read from the pdb and itp files.
@@ -269,13 +273,13 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
 
   // calculate the shift of the bounding box
   float shift[3];
-  shift[0] = ek_parameters->agrid / 2.0 * ek_parameters->dim_x - bbox.center[0];
-  shift[1] = ek_parameters->agrid / 2.0 * ek_parameters->dim_y - bbox.center[1];
-  shift[2] = ek_parameters->agrid / 2.0 * ek_parameters->dim_z - bbox.center[2];
+  shift[0] = ek_parameters.agrid / 2.0 * ek_parameters.dim_x - bbox.center[0];
+  shift[1] = ek_parameters.agrid / 2.0 * ek_parameters.dim_y - bbox.center[1];
+  shift[2] = ek_parameters.agrid / 2.0 * ek_parameters.dim_z - bbox.center[2];
 
 #ifdef DEBUG
   printf("bbox.max_x=%f, bbox.max_y=%f, bbox.max_z=%f, bbox.min_x=%f, bbox.min_y=%f, bbox.min_z=%f, bbox->center=[%f; %f; %f]\n", bbox.max_x, bbox.max_y, bbox.max_z, bbox.min_x, bbox.min_y, bbox.min_z, bbox.center[0], bbox.center[1], bbox.center[2]);
-  printf("agrid=%f, dim_x=%d, dim_y=%d, dim_z=%d\n",ek_parameters->agrid, ek_parameters->dim_x, ek_parameters->dim_y, ek_parameters->dim_z);
+  printf("agrid=%f, dim_x=%d, dim_y=%d, dim_z=%d\n",ek_parameters.agrid, ek_parameters.dim_x, ek_parameters.dim_y, ek_parameters.dim_z);
   printf("shift=[%f; %f; %f]\n",shift[0], shift[1], shift[2]);
 #endif
 
@@ -300,81 +304,83 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
 #endif
 
             // Interpolate the charge to the lattice
-            gridpos      = (a->x + shift[0]) / ek_parameters->agrid - 0.5f;
+            gridpos      = (a->x + shift[0]) / ek_parameters.agrid - 0.5f;
             lowernode[0] = (int) floorf( gridpos );
             cellpos[0]   = gridpos - lowernode[0];
                                                 
-            gridpos      = (a->y + shift[1]) / ek_parameters->agrid - 0.5f;
+            gridpos      = (a->y + shift[1]) / ek_parameters.agrid - 0.5f;
             lowernode[1] = (int) floorf( gridpos );
             cellpos[1]   = gridpos - lowernode[1];
                                                 
-            gridpos      = (a->z + shift[2]) / ek_parameters->agrid - 0.5f;
+            gridpos      = (a->z + shift[2]) / ek_parameters.agrid - 0.5f;
             lowernode[2] = (int) floorf( gridpos );
             cellpos[2]   = gridpos - lowernode[2];
                                                 
-            lowernode[0] = (lowernode[0] + ek_parameters->dim_x) % ek_parameters->dim_x;
-            lowernode[1] = (lowernode[1] + ek_parameters->dim_y) % ek_parameters->dim_y;
-            lowernode[2] = (lowernode[2] + ek_parameters->dim_z) % ek_parameters->dim_z;
+            lowernode[0] = (lowernode[0] + ek_parameters.dim_x) % ek_parameters.dim_x;
+            lowernode[1] = (lowernode[1] + ek_parameters.dim_y) % ek_parameters.dim_y;
+            lowernode[2] = (lowernode[2] + ek_parameters.dim_z) % ek_parameters.dim_z;
 
             if ( indices_only == 0 ) {
-              charge_lattice[rhoindex_cartesian2linear( lowernode[0],lowernode[1],lowernode[2],ek_parameters )]
+              pdb_charge_lattice[rhoindex_cartesian2linear( lowernode[0],lowernode[1],lowernode[2] )]
                 = b->charge * ( 1 - cellpos[0] ) * ( 1 - cellpos[1] ) * ( 1 - cellpos[2] );
 
-              charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters->dim_x,lowernode[1],lowernode[2],ek_parameters )]
+              pdb_charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,lowernode[1],lowernode[2] )]
                 = b->charge * cellpos[0] * ( 1 - cellpos[1] ) * ( 1 - cellpos[2] );
 
-              charge_lattice[rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters->dim_y,lowernode[2],ek_parameters )]
+              pdb_charge_lattice[rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters.dim_y,lowernode[2] )]
                 = b->charge * ( 1 - cellpos[0] ) * cellpos[1] * ( 1 - cellpos[2] );
 
-              charge_lattice[rhoindex_cartesian2linear( lowernode[0],lowernode[1],( lowernode[2] + 1 ) % ek_parameters->dim_z,ek_parameters )]
+              pdb_charge_lattice[rhoindex_cartesian2linear( lowernode[0],lowernode[1],( lowernode[2] + 1 ) % ek_parameters.dim_z )]
                 = b->charge * ( 1 - cellpos[0] ) * ( 1 - cellpos[1] ) * cellpos[2];
 
-              charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters->dim_x,( lowernode[1] + 1 ) % ek_parameters->dim_y,lowernode[2],ek_parameters )]
+              pdb_charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,( lowernode[1] + 1 ) % ek_parameters.dim_y,lowernode[2] )]
                 = b->charge * cellpos[0] * cellpos[1] * ( 1 - cellpos[2] );
 
-              charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters->dim_x,lowernode[1],( lowernode[2] + 1 ) % ek_parameters->dim_z,ek_parameters )]
+              pdb_charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,lowernode[1],( lowernode[2] + 1 ) % ek_parameters.dim_z )]
                 = b->charge * cellpos[0] * ( 1 - cellpos[1] ) * cellpos[2];
 
-              charge_lattice[rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters->dim_y,( lowernode[2] + 1 ) % ek_parameters->dim_z,ek_parameters )]
+              pdb_charge_lattice[rhoindex_cartesian2linear( lowernode[0],( lowernode[1] + 1 ) % ek_parameters.dim_y,( lowernode[2] + 1 ) % ek_parameters.dim_z )]
                 = b->charge * ( 1 - cellpos[0] ) * cellpos[1] * cellpos[2];
 
-              charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters->dim_x,( lowernode[1] + 1 ) % ek_parameters->dim_y,( lowernode[2] + 1 ) % ek_parameters->dim_z,ek_parameters )]
+              pdb_charge_lattice[rhoindex_cartesian2linear( ( lowernode[0] + 1 ) % ek_parameters.dim_x,( lowernode[1] + 1 ) % ek_parameters.dim_y,( lowernode[2] + 1 ) % ek_parameters.dim_z )]
                 = b->charge * cellpos[0] * cellpos[1] * cellpos[2];
-            } else if ( indices_only == 1 ) {
+            }
+	    else if ( indices_only == 1 ) {
               printf("Only indices!\n");
             }
             // Interpolate lennard-jones parameters to boundary
             float r = pow(2,1./6.)*c->sigma;
 
-            a_x_shifted = (a->x + shift[0]) / ek_parameters->agrid - 0.5f;
-            a_y_shifted = (a->y + shift[1]) / ek_parameters->agrid - 0.5f;
-            a_z_shifted = (a->z + shift[2]) / ek_parameters->agrid - 0.5f;
+            a_x_shifted = (a->x + shift[0]) / ek_parameters.agrid - 0.5f;
+            a_y_shifted = (a->y + shift[1]) / ek_parameters.agrid - 0.5f;
+            a_z_shifted = (a->z + shift[2]) / ek_parameters.agrid - 0.5f;
 
-            for (float z = a->z - r; z <= a->z + r + ek_parameters->agrid; z += ek_parameters->agrid) {
-              for (float y = a->y - r; y <= a->y + r + ek_parameters->agrid; y += ek_parameters->agrid) {
-                for (float x = a->x - r; x <= a->x + r + ek_parameters->agrid; x += ek_parameters->agrid) {
-                  gridpos      = (x + shift[0]) / ek_parameters->agrid - 0.5f;
+            for (float z = a->z - r; z <= a->z + r + ek_parameters.agrid; z += ek_parameters.agrid) {
+              for (float y = a->y - r; y <= a->y + r + ek_parameters.agrid; y += ek_parameters.agrid) {
+                for (float x = a->x - r; x <= a->x + r + ek_parameters.agrid; x += ek_parameters.agrid) {
+                  gridpos      = (x + shift[0]) / ek_parameters.agrid - 0.5f;
                   lowernode[0] = (int) floorf( gridpos );
 
-                  gridpos      = (y + shift[1]) / ek_parameters->agrid - 0.5f;
+                  gridpos      = (y + shift[1]) / ek_parameters.agrid - 0.5f;
                   lowernode[1] = (int) floorf( gridpos );
 
-                  gridpos      = (z + shift[2]) / ek_parameters->agrid - 0.5f;
+                  gridpos      = (z + shift[2]) / ek_parameters.agrid - 0.5f;
                   lowernode[2] = (int) floorf( gridpos );
 
-                  lowernode[0] = (lowernode[0] + ek_parameters->dim_x) % ek_parameters->dim_x;
-                  lowernode[1] = (lowernode[1] + ek_parameters->dim_y) % ek_parameters->dim_y;
-                  lowernode[2] = (lowernode[2] + ek_parameters->dim_z) % ek_parameters->dim_z;
+                  lowernode[0] = (lowernode[0] + ek_parameters.dim_x) % ek_parameters.dim_x;
+                  lowernode[1] = (lowernode[1] + ek_parameters.dim_y) % ek_parameters.dim_y;
+                  lowernode[2] = (lowernode[2] + ek_parameters.dim_z) % ek_parameters.dim_z;
 #ifdef DEBUG
                   printf("shifted: %f %f %f\n", a_x_shifted, a_y_shifted, a_z_shifted);
                   printf("lowernode: %d %d %d\n", lowernode[0], lowernode[1], lowernode[2]);
                   printf("distance: %f %f %f\n", lowernode[0] - a_x_shifted, lowernode[1] - a_y_shifted, lowernode[2] - a_z_shifted);
-                  printf("distance: %f <= %f\n\n", pow(lowernode[0] - a_x_shifted,2) + pow(lowernode[1] - a_y_shifted,2) + pow(lowernode[2] - a_z_shifted,2), pow(r/ek_parameters->agrid,2));
+                  printf("distance: %f <= %f\n\n", pow(lowernode[0] - a_x_shifted,2) + pow(lowernode[1] - a_y_shifted,2) + pow(lowernode[2] - a_z_shifted,2), pow(r/ek_parameters.agrid,2));
 #endif
-                  if ( pow(lowernode[0] - a_x_shifted,2) + pow(lowernode[1] - a_y_shifted,2) + pow(lowernode[2] - a_z_shifted,2) <= pow(r/ek_parameters->agrid,2) ) {
+                  if ( pow(lowernode[0] - a_x_shifted,2) + pow(lowernode[1] - a_y_shifted,2) + pow(lowernode[2] - a_z_shifted,2) <= pow(r/ek_parameters.agrid,2) ) {
                     if ( indices_only == 0 ) {
-                      boundary_lattice[ek_parameters->dim_y*ek_parameters->dim_x*lowernode[2] + ek_parameters->dim_x*lowernode[1] + lowernode[0]] = 1;
-                    } else if ( indices_only == 1 ) {
+                      pdb_boundary_lattice[ek_parameters.dim_y*ek_parameters.dim_x*lowernode[2] + ek_parameters.dim_x*lowernode[1] + lowernode[0]] = 1;
+                    }
+                    else if ( indices_only == 1 ) {
                       printf("Only indices!\n");
                     }
                   }
@@ -392,7 +398,7 @@ int populate_lattice(float* charge_lattice, int* boundary_lattice, particle_data
   return pdb_SUCCESS;
 }
 
-int pdb_parse(char* pdb_filename, char* itp_filename, float* charge_lattice, int* boundary_lattice, EK_parameters* ek_parameters, int indices_only) {
+int pdb_parse(char* pdb_filename, char* itp_filename, int indices_only) {
   /*
    * This is the main parsing routine, which is visible to the outside
    * through the header electrokinetics_pdb_parse.h. It doesn't contain any logic and just
@@ -400,6 +406,8 @@ int pdb_parse(char* pdb_filename, char* itp_filename, float* charge_lattice, int
    */
 
   /* BEGIN DEPLOY */
+  pdb_charge_lattice = (float*) calloc( ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z, sizeof(float));
+  pdb_boundary_lattice = (int*) calloc( ek_parameters.dim_x * ek_parameters.dim_y * ek_parameters.dim_z, sizeof(int));
 
   particle_data atom_data;
   atom_data.pdb_n_particles = 0;
@@ -411,7 +419,7 @@ int pdb_parse(char* pdb_filename, char* itp_filename, float* charge_lattice, int
 
   pdb_parse_files(pdb_filename, itp_filename,&atom_data);
 
-  populate_lattice(charge_lattice, boundary_lattice, &atom_data, ek_parameters, indices_only);
+  populate_lattice(&atom_data, indices_only);
 
   return pdb_SUCCESS;
 }
